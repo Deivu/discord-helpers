@@ -6,19 +6,7 @@ module.exports = class YoutubePlayer extends BasePlayer
     constructor(youtube, repository)
     {
         super(youtube, repository);
-        this._queue = new Map();
-        this.messages = new Map();
         this._registerListener();
-    }
-
-    /**
-     *
-     * @param guild
-     * @param message
-     */
-    savePlayerMessage(guild, message)
-    {
-        this.messages.set(guild.id, message);
     }
 
     /**
@@ -28,6 +16,7 @@ module.exports = class YoutubePlayer extends BasePlayer
      */
     async play(guild)
     {
+        this._deletePlaybackMessage(guild.id);
         let queue = await this._preload(guild.id);
         let connection = guild.voiceConnection;
         let state = this._state.get(guild.id);
@@ -67,7 +56,7 @@ module.exports = class YoutubePlayer extends BasePlayer
         dispatcher.on('end', (reason) => {
             if (state.stop === false) {
                 this._TryToIncrementQueue(guild.id);
-                return this.play(guild);
+                if (!reason) return this.play(guild);
             } else {
                 state.stop = false;
                 this._state.set(guild.id, state);

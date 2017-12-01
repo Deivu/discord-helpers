@@ -12,6 +12,7 @@ module.exports = class BasePlayer extends EventEmitter
         super();
         this._youtube = youtube;
         this._queue = new Map();
+        this.messages = new Map();
         this._state = new Map();
         this._timeouts = new Map();
         this.searches = new Map();
@@ -19,6 +20,29 @@ module.exports = class BasePlayer extends EventEmitter
 
         if (!fs.existsSync(`${BasePlayer.DOWNLOAD_DIR()}`)) {
             fs.mkdirSync(`${BasePlayer.DOWNLOAD_DIR()}`);
+        }
+    }
+
+    /**
+     * @param guild
+     * @param message
+     */
+    savePlayerMessage(guild, message)
+    {
+        this.messages.set(guild.id, message);
+    }
+
+    /**
+     *
+     * @param guildID
+     * @private
+     */
+    _deletePlaybackMessage(guildID)
+    {
+        let message = this.messages.get(guildID);
+        if (message) {
+            message.delete();
+            this.messages.delete(guildID);
         }
     }
 

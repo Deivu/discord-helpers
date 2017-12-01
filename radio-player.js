@@ -1,7 +1,7 @@
 const EventEmitter = require('events');
 const Discord = require('discord.js');
 
-module.exports = class BasePlayer extends EventEmitter
+module.exports = class RadioPlayer extends EventEmitter
 {
     /**
      *
@@ -17,6 +17,21 @@ module.exports = class BasePlayer extends EventEmitter
         this._state = new Map();
         this.config = config;
     }
+
+    /**
+     *
+     * @param guildID
+     * @private
+     */
+    _deletePlaybackMessage(guildID)
+    {
+        let message = this._messages.get(guildID);
+        if (message) {
+            message.delete();
+            this._messages.delete(guildID);
+        }
+    }
+
 
     /**
      *
@@ -36,7 +51,6 @@ module.exports = class BasePlayer extends EventEmitter
     stream(guild)
     {
         let connection = guild.voiceConnection;
-
         if (connection && this._state.get(guild.id)) return this.emit('stream', 'I am already playing radio.', guild);
         if (connection && connection.dispatcher) connection.dispatcher.destroy('radio', 'new radio stream initialized');
 
@@ -47,6 +61,7 @@ module.exports = class BasePlayer extends EventEmitter
         });
         dispatcher.on('end', (reason) => {
             console.log("Dispatcher end event", reason);
+            this._deletePlaybackMessage(guild.id);
             this._state.delete(guild.id);
         });
         dispatcher.on('error', (reason) => {
