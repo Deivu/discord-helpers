@@ -30,12 +30,13 @@ module.exports = class BasePlayer extends EventEmitter
      */
     async _preload(guildID)
     {
-        let data = this._queue.get(guildID) || await this._repository.queue.get(guildID);
-        if (data) {
-            this._queue.set(guildID, data);
-            return data;
+        let queue = this._queue.get(guildID);
+        if (!queue) {
+            queue =  await this._repository.queue.get(guildID);
+            this._queue.set(guildID, queue);
         }
-        return null;
+        //todo later add settings preloader
+        return queue;
     }
 
     /**
@@ -51,9 +52,9 @@ module.exports = class BasePlayer extends EventEmitter
      * @param guild
      * @returns {*}
      */
-    getMusicQueue(guild)
+    async getMusicQueue(guild)
     {
-        let queue = this._queue.get(guild.id);
+        let queue = await this._preload(guild.id)
         if (queue) return queue.tracks;
         return [];
     }
@@ -62,13 +63,13 @@ module.exports = class BasePlayer extends EventEmitter
      * @param guild
      * @param position
      */
-    removeTrack(guild, position)
+    async removeTrack(guild, position)
     {
-        let queue = this._queue.get(guild.id);
-        if (position === 0) {
+        let queue = await this._preload(guild.id)
+        if (position === 'all') {
+            this.emit('remove', `Removing \`ALL\` tracks from the queue. Total: \`${queue.tracks.length}\``, guild);
             queue.position = 0;
             queue.tracks = [];
-            this.emit('remove', `Removing \`ALL\` tracks from the queue. Total: \`${queue.tracks.length}\``, guild);
         } else {
             if (position-1 >= queue.tracks.length) return this.emit('remove', `Invalid track number provided. Allowed: 1-${queue.tracks.length}`, guild);
             this.emit('remove', `Removing \`${queue.tracks[position-1].title}\` from the queue.`, guild);
@@ -76,7 +77,7 @@ module.exports = class BasePlayer extends EventEmitter
             let secondHalf = queue.tracks.splice(position-1 === 0 ? position : position-1, queue.tracks.length);
             queue.tracks = firstHalf.concat(secondHalf);
         }
-        this,_repository.queue.set(guild.id, 'tracks', queue.tracks);
+        this._repository.queue.set(guild.id, 'tracks', queue.tracks);
         this._queue.set(guild.id, queue);
     }
 
@@ -129,9 +130,9 @@ module.exports = class BasePlayer extends EventEmitter
      * @param guild
      * @param userID
      */
-    loadTrack(track, guild, userID = null)
+    async loadTrack(track, guild, userID = null)
     {
-        return this.loadTracks([track], guild, userID);
+        return await this.loadTracks([track], guild, userID);
     }
 
     /**
@@ -140,7 +141,7 @@ module.exports = class BasePlayer extends EventEmitter
      * @param guild
      * @param userID
      */
-    loadTracks(tracks, guild, userID = null)
+    async loadTracks(tracks, guild, userID = null)
     {
         if (Array.isArray(tracks) === false) throw 'Tracks must be contained in array';
         for (let track of tracks) {
@@ -149,7 +150,10 @@ module.exports = class BasePlayer extends EventEmitter
         }
 
         let queue = this._queue.get(guild.id);
-        if (!queue) throw 'Queue not preloaded at loadTracks()';
+        if (!queue) {
+            queue = await this._preload(guild.id);
+            if (!queue) throw 'failed to preload queue! Missing migration?';
+        }
 
         queue.tracks = queue.tracks.concat(tracks);
         this._repository.queue.set(guild.id, 'tracks', queue.tracks);
