@@ -3,9 +3,10 @@ const Discord = require('discord.js');
 
 module.exports = class YoutubePlayer extends BasePlayer
 {
-    constructor(youtube)
+    constructor(youtube, repository)
     {
-        super(youtube);
+        super(youtube, repository);
+        this._queue = new Map();
         this.messages = new Map();
         this._registerListener();
     }
@@ -27,7 +28,7 @@ module.exports = class YoutubePlayer extends BasePlayer
      */
     async play(guild)
     {
-        let queue = this._queue.get(guild.id);
+        let queue = await this._preload(guild.id);
         let connection = guild.voiceConnection;
         let state = this._state.get(guild.id);
         let timeout = this._timeouts.get(guild.id);
@@ -173,8 +174,9 @@ module.exports = class YoutubePlayer extends BasePlayer
             queue.position = position - 1;
             this._queue.set(guild.id, queue);
 
-            connection.dispatcher.end('jump() method initiated');
+            this._repository.queue.set(guild.id, 'position', queue.position);
 
+            connection.dispatcher.end('jump() method initiated');
             this.emit('jump', `Player jumping to play track \`#${position} [${queue.tracks[position-1].title}]\``, guild);
         } else this.emit('jump', 'Player could jump to specific song. Player not connected or is not playing music at the moment.', guild);
     }

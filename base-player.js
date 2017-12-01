@@ -7,7 +7,7 @@ module.exports = class BasePlayer extends EventEmitter
 {
     static DOWNLOAD_DIR() {return 'downloads'};
 
-    constructor(youtube)
+    constructor(youtube, repository)
     {
         super();
         this._youtube = youtube;
@@ -15,10 +15,27 @@ module.exports = class BasePlayer extends EventEmitter
         this._state = new Map();
         this._timeouts = new Map();
         this.searches = new Map();
+        this._repository = repository;
 
         if (!fs.existsSync(`${BasePlayer.DOWNLOAD_DIR()}`)) {
             fs.mkdirSync(`${BasePlayer.DOWNLOAD_DIR()}`);
         }
+    }
+
+    /**
+     * Basically loads music data into memory if not found
+     * @param guildID
+     * @returns {Promise.<*>}
+     * @private
+     */
+    async _preload(guildID)
+    {
+        let data = this._queue.get(guildID) || await this._repository.queue.get(guildID);
+        if (data) {
+            this._queue.set(guildID, data);
+            return data;
+        }
+        return null;
     }
 
     /**
@@ -51,7 +68,6 @@ module.exports = class BasePlayer extends EventEmitter
         if (position === 0) {
             queue.position = 0;
             queue.tracks = [];
-            this._queue.set(guild.id, queue);
             this.emit('remove', `Removing \`ALL\` tracks from the queue. Total: \`${queue.tracks.length}\``, guild);
         } else {
             if (position-1 >= queue.tracks.length) return this.emit('remove', `Invalid track number provided. Allowed: 1-${queue.tracks.length}`, guild);
@@ -59,8 +75,9 @@ module.exports = class BasePlayer extends EventEmitter
             let firstHalf = position - 1 === 0 ? [] : queue.tracks.splice(0, position - 1);
             let secondHalf = queue.tracks.splice(position-1 === 0 ? position : position-1, queue.tracks.length);
             queue.tracks = firstHalf.concat(secondHalf);
-            this._queue.set(guild.id, queue);
         }
+        this,_repository.queue.set(guild.id, 'tracks', queue.tracks);
+        this._queue.set(guild.id, queue);
     }
 
     /**
@@ -110,16 +127,11 @@ module.exports = class BasePlayer extends EventEmitter
     /**
      * @param track
      * @param guild
+     * @param userID
      */
-    loadTrack(track, guild)
+    loadTrack(track, guild, userID = null)
     {
-        this._validateTrackObject(track);
-
-        let queue = this._queue.get(guild.id);
-        if (!queue) queue = this._getDefaultQueueObject(guild.id);
-        queue.tracks.push(track);
-
-        this._queue.set(guild.id, queue);
+        return this.loadTracks([track], guild, userID);
     }
 
     /**
@@ -137,9 +149,11 @@ module.exports = class BasePlayer extends EventEmitter
         }
 
         let queue = this._queue.get(guild.id);
-        if (!queue) queue = this._getDefaultQueueObject(guild.id);
+        if (!queue) throw 'Queue not preloaded at loadTracks()';
 
         queue.tracks = queue.tracks.concat(tracks);
+        this._repository.queue.set(guild.id, 'tracks', queue.tracks);
+
         this._queue.set(guild.id, queue);
 
         this.emit('update', guild);
@@ -187,8 +201,13 @@ module.exports = class BasePlayer extends EventEmitter
         let state = this._state.get(guildID);
 
         if (!queue) throw 'Can\'t increment queue - map not initialized';
-        if (queue.position >= queue.tracks.length-1 && state.increment_queue === true) queue.queue_end_reached = true;
-        else if (!state || state.increment_queue === true) queue.position+=1;
+        if (queue.position >= queue.tracks.length-1 && state.increment_queue === true) {
+            queue.queue_end_reached = true;
+            this._repository.queue.set(guildID, 'queue_end_reached', true);
+        } else if (!state || state.increment_queue === true) {
+            queue.position+=1;
+            this._repository.queue.set(guildID, 'position', queue.position);
+        }
 
         state.increment_queue = true;
 
@@ -206,23 +225,8 @@ module.exports = class BasePlayer extends EventEmitter
         queue.position = 0;
         queue.queue_end_reached = false;
         this._queue.set(guildID, queue);
-    }
 
-    /**
-     *
-     * @param guildID
-     * @returns {{guild_id: *, tracks: Array, position: number}}
-     * @private
-     */
-    _getDefaultQueueObject(guildID)
-    {
-        return {
-            guild_id: guildID,
-            tracks: [],
-            position: 0,
-            queue_end_reached: false,
-            created_timestamp: new Date().getTime(),
-        }
+        this._repository.queue.setMultiple(guildID, new Map([['position', 0], ['queue_end_reached', false]]));
     }
 
     /**
