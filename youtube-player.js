@@ -22,16 +22,19 @@ module.exports = class YoutubePlayer extends BasePlayer
         let state = this._state.get(guild.id);
         let timeout = this._timeouts.get(guild.id);
 
+        if (timeout && timeout.count > 5) return this.emit('play', 'Music player has shut itself down due to failing to play track(s) for too long. Please make sure your music queue is not corrupted.', guild);
+        if (!state) state = this._initDefaultState(guild.id);
+
+        if (!queue || !queue.tracks || queue.tracks.length === 0) {
+            return this.emit('play', 'Queue for given guild is empty.', guild);
+        }
+        if (!connection) {
+            return this.emit('play', 'Not connected to voice channel for given guild.', guild);
+        }
         if (connection.channel.members.size === 1) {
             connection.disconnect();
             return this.emit('play', 'Music player stopped. No people in voice channel. Disconnecting...');
         }
-
-        if (timeout && timeout.count > 5) return this.emit('play', 'Music player has shut itself down due to failing to play track(s) for too long. Please make sure your music queue is not corrupted.', guild);
-        if (!state) state = this._initDefaultState(guild.id);
-
-        if (!queue || !queue.tracks || queue.tracks.length === 0) return this.emit('play', 'Queue for given guild is empty.', guild);
-        if (!connection) return this.emit('play', 'Not connected to voice channel for given guild.', guild);
 
         if (connection.dispatcher && connection.dispatcher.paused) return this.emit('play', 'Music played is paused. Please resume playback or stop it before trying to play it.', guild);
         else if (connection.dispatcher) connection.dispatcher.destroy('play', 'New dispatcher initialized');
@@ -54,12 +57,18 @@ module.exports = class YoutubePlayer extends BasePlayer
         });
 
         dispatcher.on('end', (reason) => {
+            let playbackMessage = this.messages.get(guild.id)
+
             if (state.stop === false) {
                 this._TryToIncrementQueue(guild.id);
                 if (!reason) return this.play(guild);
             } else {
                 state.stop = false;
                 this._state.set(guild.id, state);
+            }
+
+            if (playbackMessage) {
+                playbackMessage.delete();
             }
         });
 
