@@ -71,7 +71,7 @@ module.exports = class YoutubePlayer extends BasePlayer
             }
             if (state.stop === false) {
                 this._TryToIncrementQueue(guild.id);
-                if (!reason) {
+                if (!reason || reason === 'stream') {
                     return this.play(guild);
                 } else {
                     console.log('Not continuing to play() due to', reason);

@@ -82,13 +82,13 @@ module.exports = class BasePlayer extends EventEmitter
     _filterMusicSettings(settingsMap)
     {
         return {
-            volume: settingsMap.get(Repository.SETTING_DEFAULT_AUDIO_DISPATCHER_VOLUME()).value,
-            stop: false,
-            loop: settingsMap.get(Repository.SETTING_MUSIC_LOOPING()).value,
-            shuffle: settingsMap.get(Repository.SETTING_SHUFFLE_QUEUE()).value,
             increment_queue: true,
             seek: false,
-            passes: 2
+            stop: false,
+            volume: settingsMap.get(Repository.SETTING_DEFAULT_AUDIO_DISPATCHER_VOLUME()).value,
+            loop: settingsMap.get(Repository.SETTING_MUSIC_LOOPING()).value,
+            shuffle: settingsMap.get(Repository.SETTING_SHUFFLE_QUEUE()).value,
+            passes: settingsMap.get(Repository.SETTING_MUSIC_PLAYER_QUALITY_PASSES()).value,
         }
     }
 
@@ -110,7 +110,7 @@ module.exports = class BasePlayer extends EventEmitter
      */
     async removeTrack(guild, position)
     {
-        let queue = await this._preload(guild.id)
+        let queue = await this._preload(guild.id);
         if (position === 'all') {
             this.emit('remove', `Removing \`ALL\` tracks from the queue. Total: \`${queue.tracks.length}\``, guild);
             queue.position = 0;
