@@ -65,18 +65,19 @@ module.exports = class YoutubePlayer extends BasePlayer
         });
 
         dispatcher.on('end', (reason) => {
+            reason = reason.split('destroyed due to')[1].split('-')[0].trim();
             let playbackMessage = this.messages.get(guild.id);
-            if (playbackMessage) {
-                playbackMessage.delete();
-            }
-            if (state.stop === false) {
-                this._TryToIncrementQueue(guild.id);
-                if (!reason || reason === 'stream') {
-                    return this.play(guild);
-                } else {
-                    console.log('Not continuing to play() due to', reason);
+            if (playbackMessage && playbackMessage.deletable) {
+                try {
+                    playbackMessage.delete();
+                } catch (e){
+                    console.log('Failed to delete playback message in youtube-playe.rjs')
                 }
-            } else {
+            }
+            if (state.stop === false && reason !== 'radio') {
+                this._TryToIncrementQueue(guild.id);
+                return this.play(guild);
+            } else if (state.stop === true) {
                 state.stop = false;
                 this._state.set(guild.id, state);
             }
@@ -203,7 +204,7 @@ module.exports = class YoutubePlayer extends BasePlayer
                 this.emit('stop', 'Music player has been stopped.', guild);
                 this.emit('update', guild, true);
             }
-            connection.dispatcher.destroy('stop', 'manual dispatcher destroy init');
+            connection.dispatcher.destroy('youtube-player', 'stop');
         } else this.emit('stop', 'Music Player could not be stopped. Player not connected.', guild)
     }
 

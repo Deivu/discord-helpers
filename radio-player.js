@@ -51,12 +51,12 @@ module.exports = class RadioPlayer extends EventEmitter
      * @param guild
      * @returns {PromiseConstructor | Promise}
      */
-    stream(guild)
+    async stream(guild)
     {
         let connection = guild.voiceConnection;
-        let state = this._preload(guild.id);
         if (connection && this._state.get(guild.id)) return this.emit('stream', 'I am already playing radio.', guild);
-        if (connection && connection.dispatcher) connection.dispatcher.destroy('radio', 'new radio stream initialized');
+        if (connection && connection.dispatcher) connection.dispatcher.destroy('radio-player', 'next');
+        let state = await this._preload(guild.id);
 
         let dispatcher = connection.playStream(this.config.stream, {passes: state.passes || 2 , volume: state.volume || 0.5});
         dispatcher.on('start', () => {
@@ -79,7 +79,9 @@ module.exports = class RadioPlayer extends EventEmitter
                 this._state.set(guild.id, {listening: true});
                 if (connection.channel.members.size === 1) {
                     let msg = this._messages.get(guild.id);
-                    if (msg && msg.deletable) msg.delete();
+                    if (msg && msg.deletable) {
+                        msg.delete();
+                    }
                     connection.disconnect();
                     this.emit('stream', 'No users in voice channel. Turning off radio for now.', guild);
                     this._state.delete(guild.id);
@@ -117,16 +119,17 @@ module.exports = class RadioPlayer extends EventEmitter
      * @returns {{volume: (string|Number), passes: (string|Number)}}
      * @private
      */
-    _preload(guildID)
+    async _preload(guildID)
     {
         let state = this._state.get(guildID);
-        let settingsMap = this._repository.setting.getSettings(guildID);
+        let settingsMap = await this._repository.setting.getSettings(guildID);
 
         if (!state || settingsMap.get(Repository.SETTING_FORCED_STATE_RESYNC()).value === true || state.forced_resync === true) {
             state = {
                 volume: settingsMap.get(Repository.SETTING_DEFAULT_AUDIO_DISPATCHER_VOLUME()).value,
                 passes: settingsMap.get(Repository.SETTING_MUSIC_PLAYER_QUALITY_PASSES()).value,
-                forced_resync: false
+                forced_resync: false,
+                listening: true
             };
             this._repository.setting.setSetting(guildID, Repository.SETTING_FORCED_STATE_RESYNC(), false);
             this._state.set(guildID, state);
