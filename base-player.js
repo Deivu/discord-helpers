@@ -2,6 +2,7 @@ const ffmpeg = require('fluent-ffmpeg');
 const promise = require('promised-io/promise');
 const fs = require('fs');
 const EventEmitter = require('events');
+const Repository = require('discord-mongo/repositories/guild-setting-repository');
 
 module.exports = class BasePlayer extends EventEmitter
 {
@@ -54,21 +55,41 @@ module.exports = class BasePlayer extends EventEmitter
      */
     async _preload(guildID)
     {
+        // preloading music queue data if not found
         let queue = this._queue.get(guildID);
         if (!queue) {
             queue =  await this._repository.queue.get(guildID);
             this._queue.set(guildID, queue);
         }
-        //todo later add settings preloader
+
+        // preloading music setting data if not found
+        let state = this._state.get(guildID);
+        if (!state) {
+            let settings = await this._repository.setting.getSettings(guildID);
+            state = this._filterMusicSettings(settings);
+            this._state.set(guildID, state);
+        }
+
         return queue;
     }
 
     /**
-     * Terminates state
+     *
+     * @param settingsMap
+     * @returns {{volume: (V|*), stop: boolean, loop: (V|*), shuffle: (V|*), increment_queue: boolean, seek: boolean, passes: number}}
+     * @private
      */
-    terminate()
+    _filterMusicSettings(settingsMap)
     {
-        this._initDefaultState();
+        return {
+            volume: settingsMap.get(Repository.SETTING_DEFAULT_AUDIO_DISPATCHER_VOLUME()),
+            stop: false,
+            loop: settingsMap.get(Repository.SETTING_MUSIC_LOOPING()),
+            shuffle: settingsMap.get(Repository.SETTING_SHUFFLE_QUEUE()),
+            increment_queue: true,
+            seek: false,
+            passes: 2
+        }
     }
 
     /**
@@ -185,26 +206,6 @@ module.exports = class BasePlayer extends EventEmitter
         this._queue.set(guild.id, queue);
 
         this.emit('update', guild);
-    }
-
-    /**
-     * @param guildID
-     * @private
-     */
-    _initDefaultState(guildID)
-    {
-        let state = {
-            passes: 2,
-            seek: 0,
-            volume: 1,
-            increment_queue: true,
-            loop: true,
-            shuffle: true,
-            stop: false,
-        };
-        this._state.set(guildID, state);
-
-        return state;
     }
 
     /**

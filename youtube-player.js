@@ -1,5 +1,6 @@
 const BasePlayer = require('./base-player');
 const Discord = require('discord.js');
+const Repository = require('discord-mongo/repositories/guild-setting-repository');
 
 module.exports = class YoutubePlayer extends BasePlayer
 {
@@ -22,9 +23,9 @@ module.exports = class YoutubePlayer extends BasePlayer
         let state = this._state.get(guild.id);
         let timeout = this._timeouts.get(guild.id);
 
-        if (timeout && timeout.count > 5) return this.emit('play', 'Music player has shut itself down due to failing to play track(s) for too long. Please make sure your music queue is not corrupted.', guild);
-        if (!state) state = this._initDefaultState(guild.id);
-
+        if (timeout && timeout.count > 5) {
+            return this.emit('play', 'Music player has shut itself down due to failing to play track(s) for too long. Please make sure your music queue is not corrupted.', guild);
+        }
         if (!queue || !queue.tracks || queue.tracks.length === 0) {
             return this.emit('play', 'Queue for given guild is empty.', guild);
         }
@@ -36,14 +37,21 @@ module.exports = class YoutubePlayer extends BasePlayer
             return this.emit('play', 'Music player stopped. No people in voice channel. Disconnecting...');
         }
 
-        if (connection.dispatcher && connection.dispatcher.paused) return this.emit('play', 'Music played is paused. Please resume playback or stop it before trying to play it.', guild);
-        else if (connection.dispatcher) connection.dispatcher.destroy('play', 'New dispatcher initialized');
+        if (connection.dispatcher && connection.dispatcher.paused) {
+            return this.emit('play', 'Music played is paused. Please resume playback or stop it before trying to play it.', guild);
+        }  else if (connection.dispatcher) {
+            connection.dispatcher.destroy('play', 'New dispatcher initialized');
+        }
 
         if (queue.queue_end_reached === true && state.loop === true) {
-            if (state.shuffle === true) this.shuffle(guild);
+            if (state.shuffle === true) {
+                this.shuffle(guild);
+            }
             this._resetQueuePosition(guild.id);
             queue = this._queue.get(guild.id);
-        } else if (queue.queue_end_reached === true && state.loop === false) return this.emit('play', 'Music has finished playing for given guild. Looping is not enabled.', guild);
+        } else if (queue.queue_end_reached === true && state.loop === false) {
+            return this.emit('play', 'Music has finished playing for given guild. Looping is not enabled.', guild);
+        }
 
         let track = this._getTrack(queue);
         if (!state.seek) await this._youtube.download(track.url, `${YoutubePlayer.DOWNLOAD_DIR()}/${guild.id}`);
@@ -57,18 +65,20 @@ module.exports = class YoutubePlayer extends BasePlayer
         });
 
         dispatcher.on('end', (reason) => {
-            let playbackMessage = this.messages.get(guild.id)
-
+            let playbackMessage = this.messages.get(guild.id);
+            if (playbackMessage) {
+                playbackMessage.delete();
+            }
             if (state.stop === false) {
                 this._TryToIncrementQueue(guild.id);
-                if (!reason) return this.play(guild);
+                if (!reason) {
+                    return this.play(guild);
+                } else {
+                    console.log('Not continuing to play() due to', reason);
+                }
             } else {
                 state.stop = false;
                 this._state.set(guild.id, state);
-            }
-
-            if (playbackMessage) {
-                playbackMessage.delete();
             }
         });
 
@@ -209,6 +219,7 @@ module.exports = class YoutubePlayer extends BasePlayer
         if (connection && connection.dispatcher) {
             connection.dispatcher.setVolume(volume / 100.0);
             state.volume = volume / 100.0;
+            this._repository.setSetting(guild.id, Repository.SETTING_DEFAULT_AUDIO_DISPATCHER_VOLUME(), state.volume);
             this._state.set(guild.id, state);
             this.emit('volume', `Music player volume has been set to \`${volume}\``, guild);
             this.emit('update', guild);
