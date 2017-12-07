@@ -29,8 +29,12 @@ module.exports = class RadioPlayer extends EventEmitter
     _deletePlaybackMessage(guildID)
     {
         let message = this._messages.get(guildID);
-        if (message) {
-            message.delete();
+        if (message && message.deletable) {
+            try {
+                message.delete();
+            } catch (e) {
+                console.log('Failed to dlete player message in radio-player.js');
+            }
             this._messages.delete(guildID);
         }
     }
@@ -63,9 +67,9 @@ module.exports = class RadioPlayer extends EventEmitter
             this._state.set(guild.id, {listening: true});
             this.emit('streaming', this.getInfo(guild), guild);
         });
-        dispatcher.on('end', (reason) => {
+        dispatcher.on('end', async (reason) => {
             console.log("Dispatcher end event", reason);
-            this._deletePlaybackMessage(guild.id);
+            await this._deletePlaybackMessage(guild.id);
             this._state.delete(guild.id);
         });
         dispatcher.on('error', (reason) => {
@@ -73,19 +77,12 @@ module.exports = class RadioPlayer extends EventEmitter
             this._state.delete(guild.id);
         });
 
-        this._listenMoe.socket.on(`update`, data => {
+        this._listenMoe.socket.on(`update`, async (data) => {
             let state = this._state.get(guild.id);
             if (state && state.listening)  {
                 this._state.set(guild.id, {listening: true});
                 if (connection.channel.members.size === 1) {
-                    let msg = this._messages.get(guild.id);
-                    if (msg && msg.deletable) {
-                        try {
-                            msg.delete();
-                        } catch (e) {
-                            console.log('Failed to delete player message in radio-player.js');
-                        }
-                    }
+                    await this._deletePlaybackMessage(guild.id);
                     connection.disconnect();
                     this.emit('stream', 'No users in voice channel. Turning off radio for now.', guild);
                     this._state.delete(guild.id);

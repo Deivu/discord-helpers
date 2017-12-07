@@ -64,14 +64,17 @@ module.exports = class YoutubePlayer extends BasePlayer
             this.emit('playing', track, guild);
         });
 
-        dispatcher.on('end', (reason) => {
-            reason = reason.split('destroyed due to')[1].split('-')[0].trim();
+        dispatcher.on('end', async (reason) => {
+            if (reason && reason.indexOf('destroyed due to') !== -1) {
+                reason = reason.split('destroyed due to')[1].split('-')[0].trim();
+            }
             let playbackMessage = this.messages.get(guild.id);
             if (playbackMessage && playbackMessage.deletable) {
                 try {
-                    playbackMessage.delete();
+                    await playbackMessage.delete();
+                    this.messages.delete(guild.id);
                 } catch (e){
-                    console.log('Failed to delete playback message in youtube-playe.rjs')
+                    console.log('Failed to delete playback message in youtube-player.js')
                 }
             }
             if (state.stop === false && reason !== 'radio') {
@@ -138,7 +141,7 @@ module.exports = class YoutubePlayer extends BasePlayer
         let state = this._state.get(guild.id);
         let connection = guild.voiceConnection;
         if (state && connection && (connection.dispatcher || connection.speaking === true)) {
-            connection.dispatcher.end('skip() method initiated');
+            connection.dispatcher.end();
             return this.emit('skip', 'Music player is skipping.', guild)
         } else this.emit('skip', 'Music Player could not skip track at the moment. Player not connected or is not playing anything yet.', guild)
     }
@@ -220,7 +223,7 @@ module.exports = class YoutubePlayer extends BasePlayer
         if (connection && connection.dispatcher) {
             connection.dispatcher.setVolume(volume / 100.0);
             state.volume = volume / 100.0;
-            this._repository.setSetting(guild.id, Repository.SETTING_DEFAULT_AUDIO_DISPATCHER_VOLUME(), state.volume);
+            this._repository.setting.setSetting(guild.id, Repository.SETTING_DEFAULT_AUDIO_DISPATCHER_VOLUME(), state.volume);
             this._state.set(guild.id, state);
             this.emit('volume', `Music player volume has been set to \`${volume}\``, guild);
             this.emit('update', guild);
@@ -238,7 +241,8 @@ module.exports = class YoutubePlayer extends BasePlayer
             let message = this.messages.get(guild.id);
             if (message && message.deletable) {
                 channel = message.channel;
-                message.delete();
+                await message.delete();
+                this.messages.delete(guild.id);
             } if (stopped === false && message && channel) {
                 this.messages.set(guild.id, await channel.send('', {embed: this.getInfo(guild)}));
             } else if (stopped === true) {
