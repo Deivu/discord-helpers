@@ -82,10 +82,10 @@ module.exports = class BasePlayer extends EventEmitter
     _filterMusicSettings(settingsMap)
     {
         return {
-            volume: settingsMap.get(Repository.SETTING_DEFAULT_AUDIO_DISPATCHER_VOLUME()),
+            volume: settingsMap.get(Repository.SETTING_DEFAULT_AUDIO_DISPATCHER_VOLUME()).value,
             stop: false,
-            loop: settingsMap.get(Repository.SETTING_MUSIC_LOOPING()),
-            shuffle: settingsMap.get(Repository.SETTING_SHUFFLE_QUEUE()),
+            loop: settingsMap.get(Repository.SETTING_MUSIC_LOOPING()).value,
+            shuffle: settingsMap.get(Repository.SETTING_SHUFFLE_QUEUE()).value,
             increment_queue: true,
             seek: false,
             passes: 2

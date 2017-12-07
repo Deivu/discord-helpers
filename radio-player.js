@@ -1,5 +1,6 @@
 const EventEmitter = require('events');
 const Discord = require('discord.js');
+const Repository = require('discord-mongo/repositories/guild-setting-repository');
 
 module.exports = class RadioPlayer extends EventEmitter
 {
@@ -7,14 +8,16 @@ module.exports = class RadioPlayer extends EventEmitter
      *
      * @param listenMoe
      * @param config
+     * @param repository
      */
-    constructor(listenMoe, config)
+    constructor(listenMoe, config, repository)
     {
         super();
         this._listenMoe = listenMoe;
         this._listenMoe.openSocket();
         this._messages = new Map();
         this._state = new Map();
+        this._repository = repository;
         this.config = config;
     }
 
@@ -51,10 +54,11 @@ module.exports = class RadioPlayer extends EventEmitter
     stream(guild)
     {
         let connection = guild.voiceConnection;
+        let state = this._preload(guild.id);
         if (connection && this._state.get(guild.id)) return this.emit('stream', 'I am already playing radio.', guild);
         if (connection && connection.dispatcher) connection.dispatcher.destroy('radio', 'new radio stream initialized');
 
-        let dispatcher = connection.playStream(this.config.stream, {passes: 3});
+        let dispatcher = connection.playStream(this.config.stream, {passes: state.passes || 2 , volume: state.volume || 0.5});
         dispatcher.on('start', () => {
             this._state.set(guild.id, {listening: true});
             this.emit('streaming', this.getInfo(guild), guild);
@@ -105,5 +109,28 @@ module.exports = class RadioPlayer extends EventEmitter
             return embed;
         }
         return null;
+    }
+
+    /**
+     *
+     * @param guildID
+     * @returns {{volume: (string|Number), passes: (string|Number)}}
+     * @private
+     */
+    _preload(guildID)
+    {
+        let state = this._state.get(guildID);
+        let settingsMap = this._repository.setting.getSettings(guildID);
+
+        if (!state || settingsMap.get(Repository.SETTING_FORCED_STATE_RESYNC()).value === true || state.forced_resync === true) {
+            state = {
+                volume: settingsMap.get(Repository.SETTING_DEFAULT_AUDIO_DISPATCHER_VOLUME()).value,
+                passes: settingsMap.get(Repository.SETTING_MUSIC_PLAYER_QUALITY_PASSES()).value,
+                forced_resync: false
+            };
+            this._repository.setting.setSetting(guildID, Repository.SETTING_FORCED_STATE_RESYNC(), false);
+            this._state.set(guildID, state);
+        }
+        return state;
     }
 };
