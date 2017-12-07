@@ -80,7 +80,11 @@ module.exports = class RadioPlayer extends EventEmitter
                 if (connection.channel.members.size === 1) {
                     let msg = this._messages.get(guild.id);
                     if (msg && msg.deletable) {
-                        msg.delete();
+                        try {
+                            msg.delete();
+                        } catch (e) {
+                            console.log('Failed to delete player message in radio-player.js');
+                        }
                     }
                     connection.disconnect();
                     this.emit('stream', 'No users in voice channel. Turning off radio for now.', guild);
