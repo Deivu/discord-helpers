@@ -26,7 +26,7 @@
   "dependencies": {
     "promised-io": "^0.3.5",
     "superagent": "^3.5.2",
-    "discord-mongo": "github:mindaugaskasp/discord-mongo-wrappers#master",
+    "discord-mongo": "github:mindaugaskasp/discord-mongo-wrappers#master"
   },
   "homepage": "https://github.com/mindaugaskasp/discord-helpers#readme"
 }
