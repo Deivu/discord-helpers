@@ -2,7 +2,7 @@ const ffmpeg = require('fluent-ffmpeg');
 const promise = require('promised-io/promise');
 const fs = require('fs');
 const EventEmitter = require('events');
-const Repository = require('discord-mongo/repositories/guild-setting-repository');
+const Repository = require('discord-mongo-wrappers/repositories/guild-setting-repository');
 
 module.exports = class BasePlayer extends EventEmitter
 {

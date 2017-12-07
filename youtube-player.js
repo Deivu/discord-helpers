@@ -1,6 +1,6 @@
 const BasePlayer = require('./base-player');
 const Discord = require('discord.js');
-const Repository = require('discord-mongo/repositories/guild-setting-repository');
+const Repository = require('discord-mongo-wrappers/repositories/guild-setting-repository');
 
 module.exports = class YoutubePlayer extends BasePlayer
 {

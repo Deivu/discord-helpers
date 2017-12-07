@@ -1,6 +1,6 @@
 const EventEmitter = require('events');
 const Discord = require('discord.js');
-const Repository = require('discord-mongo/repositories/guild-setting-repository');
+const Repository = require('discord-mongo-wrappers/repositories/guild-setting-repository');
 
 module.exports = class RadioPlayer extends EventEmitter
 {
